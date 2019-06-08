@@ -1,0 +1,17 @@
+[
+  {
+    "Content-Location": "http://raw.githubusercontent.com/FIWARE/NGSI-LD_TestSuite/master/ldContext/coreContext_To_Test_Use_ETSI/ngsi-ld-core-context.json",
+    "X-Classpath": "contexts/ngsi-ld-core-context.jsonld",
+    "Content-Type": "application/ld+json"
+  },
+  {
+    "Content-Location": "http://schema.org/Vehicle",
+    "X-Classpath": "contexts/vehicle.jsonld",
+    "Content-Type": "application/ld+json"
+  },
+  {
+    "Content-Location": "http://fiware-datamodels.readthedocs.io/en/latest/Parking/doc/introduction/index.html",
+    "X-Classpath": "contexts/parking.jsonld",
+    "Content-Type": "application/ld+json"
+  }
+]

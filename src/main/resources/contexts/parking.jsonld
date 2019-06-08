@@ -1,0 +1,7 @@
+{
+  "@context": {
+    "Parking": "http://fiware-datamodels.readthedocs.io/en/latest/Parking/doc/introduction/index.html"
+    "availableSpotNumber": "http://fiware-datamodels.readthedocs.io/en/latest/Parking/ParkingSpot/doc/spec/index.html",
+    "isParked": "http://fiware-datamodels.readthedocs.io/en/latest/Parking/ParkingSpot/doc/spec/index.html"
+   }
+}

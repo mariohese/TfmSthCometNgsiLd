@@ -1,0 +1,7 @@
+{
+  "@context": {
+    "Vehicle": "http://schema.org/Vehicle",
+    "brandName": "http://schema.org/Brand",
+    "isParked": "http://schema.org/isParked"
+   }
+}
