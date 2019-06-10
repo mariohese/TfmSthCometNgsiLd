@@ -49,7 +49,14 @@ object DataInteraction {
       //var column_label_list_string = "info"
 
       // Insertar un json en postgresql
-      val sql = s"INSERT INTO ${table_name} (${column_list.mkString(",")}) VALUES (${values_list.mkString(",")})"
+      var sql = ""
+      if (table_name == "Property" || table_name == "Relationship"){
+        sql = s"INSERT INTO ${table_name} (${column_list.mkString(",")}) VALUES (${values_list.mkString(",")})"
+      }
+        
+      else {
+        sql = s"INSERT INTO ${table_name} (time, ${column_list.mkString(",")}) VALUES (NOW(), ${values_list.mkString(",")})"
+      }
 
       logger.info(s"El mensaje de INSERT es: ${sql}")
       val statement = connection.prepareStatement(sql)

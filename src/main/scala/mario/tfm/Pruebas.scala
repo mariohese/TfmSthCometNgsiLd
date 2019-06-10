@@ -72,8 +72,8 @@ object Pruebas extends App {
   }
 
   val uuid = UUID.randomUUID()
-  val columnas = ListBuffer("id", "type", "brandName", "isParked")
-  val valores: ListBuffer[Object] =  ListBuffer("'urn:ngsi-ld:Vehicle:A4568'", "'Vehicle'", "'" + uuid + "'", "'" + uuid + "'")
+  val columnas = ListBuffer("id", "brandName", "isParked")
+  val valores: ListBuffer[Object] =  ListBuffer("'urn:ngsi-ld:Vehicle:A4568'", "'" + uuid + "'", "'" + uuid + "'")
 
   println(columnas.mkString(","))
   println(valores.mkString(","))

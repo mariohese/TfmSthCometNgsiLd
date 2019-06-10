@@ -105,7 +105,7 @@ trait UserRoutes extends JsonSupport {
                     insertPostgres(usefuldata._1, usefuldata._2, usefuldata._3)
                   }
                   else {
-                    values.append(s"'${j._2}'")
+                    values.append(s"'${j._2.toString().replace("\"","")}'")
                   }
                 }
               }
