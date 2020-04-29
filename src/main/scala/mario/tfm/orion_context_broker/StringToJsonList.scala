@@ -1,6 +1,6 @@
 package mario.tfm.orion_context_broker
 
-import play.api.libs.json._
+import play.api.libs.json.{JsObject, Json}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -19,7 +19,7 @@ object StringToJsonList {
 
   def main(args: Array[String]): Unit = {
 
-    var s = "[{\"id\":\"Room2\",\"type\":\"Room\",\"pressure\":{\"type\":\"Number\",\"value\":720,\"metadata\":{}},\"temperature\":{\"type\":\"Number\",\"value\":23,\"metadata\":{}}},{\"id\":\"Room1\",\"type\":\"Room\",\"pressure\":{\"type\":\"Integer\",\"value\":720,\"metadata\":{}},\"temperature\":{\"type\":\"Float\",\"value\":23,\"metadata\":{}}}]"
+   /* var s = "[{\"id\":\"Room2\",\"type\":\"Room\",\"pressure\":{\"type\":\"Number\",\"value\":720,\"metadata\":{}},\"temperature\":{\"type\":\"Number\",\"value\":23,\"metadata\":{}}},{\"id\":\"Room1\",\"type\":\"Room\",\"pressure\":{\"type\":\"Integer\",\"value\":720,\"metadata\":{}},\"temperature\":{\"type\":\"Float\",\"value\":23,\"metadata\":{}}}]"
     var s2 = "{\"id\":\"Room2\",\"type\":\"Room\",\"pressure\":{\"type\":\"Number\",\"value\":720,\"metadata\":{}},\"temperature\":{\"type\":\"Number\",\"value\":23,\"metadata\":{}}}"
     var lista = stringToJson(s)
     var lista2 = stringToJson(s2)
@@ -48,5 +48,6 @@ object StringToJsonList {
     println(lista.apply(0).apply("temperature").as[JsObject].keys)
     println("Elemento 1")
     println(lista.apply(1))
+    */
   }
 }

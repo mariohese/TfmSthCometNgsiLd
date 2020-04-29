@@ -1,18 +1,12 @@
 package mario.tfm
 
+import java.io.ByteArrayOutputStream
 import java.sql.{Connection, DriverManager}
+import java.util.{Date, Properties}
 
-import com.fasterxml.jackson.core.`type`.TypeReference
-import com.fasterxml.jackson.databind.ObjectMapper
-import org.json4s.DefaultFormats
-import org.json4s.jackson.JsonMethods.parse
-import java.util
-import java.util.Properties
-import java.util.UUID
-
-import mario.tfm.postgresql.DataInteraction.logger
-
-import scala.collection.mutable.ListBuffer
+import org.httprpc.io.JSONEncoder
+import org.httprpc.sql.ResultSetAdapter
+import play.api.libs.json.{JsObject, JsValue, Json}
 
 object Pruebas extends App {
 
@@ -37,30 +31,24 @@ object Pruebas extends App {
   }
 
   // table_name se supone que tiene que ser el valor del parámetro type
-  def insertPostgres(table_name: String, column_list: ListBuffer[String], values_list: ListBuffer[Object]) = {
+  def insertPostgres() = {
 
     var connection: Connection = null
     try {
       connection = createConnection()
 
-      // Para crear una tabla... Pero las tablas ahora las crearé en local y en el proyecto hago que comiencen creadas en un Dockerfile
-      // val table_name = "prueba"
-      /*val prepare_statement = connection.prepareStatement(s" CREATE TABLE IF NOT EXISTS prueba(info jsonb UNIQUE NOT NULL)")
-      prepare_statement.executeUpdate()
-      prepare_statement.close()*/
+      val statement = connection.createStatement()
 
-      //var st = "{\"id\":\"Room2\",\"type\":\"Room\",\"pressure\":{\"type\":\"Number\",\"value\":720,\"metadata\":{}},\"temperature\":{\"type\":\"Number\",\"value\":23,\"metadata\":{}}}"
+      val resultset = new ResultSetAdapter(statement.executeQuery("SELECT * FROM Prueba"))
 
-      //var column_label_list_string = "info"
+      val jsonEncoder: JSONEncoder = new JSONEncoder()
 
-      // Insertar un json en postgresql
-      val sql = s"INSERT INTO ${table_name} (${column_list.mkString(",")}) VALUES (${values_list.mkString(",")})"
+      val c = new ByteArrayOutputStream()
+      jsonEncoder.write(resultset, c)
 
-      logger.info(s"El mensaje de INSERT es: ${sql}")
-      val statement = connection.prepareStatement(sql)
+      println(c.toString)
 
-      //statement.setString(1, st)
-      statement.executeUpdate()
+
       statement.close()
 
     } catch {
@@ -71,13 +59,30 @@ object Pruebas extends App {
 
   }
 
-  val uuid = UUID.randomUUID()
-  val columnas = ListBuffer("id", "brandName", "isParked")
-  val valores: ListBuffer[Object] =  ListBuffer("'urn:ngsi-ld:Vehicle:A4568'", "'" + uuid + "'", "'" + uuid + "'")
 
-  println(columnas.mkString(","))
-  println(valores.mkString(","))
 
-  insertPostgres("Vehicle", columnas, valores)
+  val jsprueba = """{"id": "urn:ngsi-ld:OffStreetParking:Downtown02","type": "OffStreetParking","name": {"type": "Property","value": "Downtown One"},"availableSpotNumber": {"type": "Property","value": 121,"observedAt": "2018-12-04T12:00:00Z","reliability": {"type": "Property","value": 0.7},"providedBy": {"type": "Relationship","object": "urn:ngsi-ld:Camera:C1"}},"totalSpotNumber": {"type": "Property","value": 200},"location": {"type": "GeoProperty","value": {"type": "Point","coordinates": [-8.5, 41.2]}},"@context": "https://json-ld.org/contexts/person.jsonld"}"""
+
+  val jsobject = Json.parse(jsprueba)
+  val location = (jsobject \ "availableSpotNumber").as[JsObject]
+
+  val l = location.toString()
+  println(l)
+  val value = (location \ "observedAt").as[String]
+  println("'"+ value + "'")
+
+  import java.text.DateFormat
+  import java.text.SimpleDateFormat
+  import java.util.TimeZone
+
+  import java.time.LocalDateTime
+  import java.time.format.DateTimeFormatter._
+
+  val dts = "2018-12-04T12:00:10Z"
+  val d = LocalDateTime.parse(dts, ISO_DATE_TIME)
+  println(d.getClass.getSimpleName)
+
+  //insertPostgres()
+
 
 }

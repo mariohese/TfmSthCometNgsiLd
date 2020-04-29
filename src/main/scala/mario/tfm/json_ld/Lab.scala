@@ -1,12 +1,10 @@
 package mario.tfm.json_ld
 
-import java.io.{ FileInputStream, StringReader }
+import java.io.FileInputStream
 import java.util
 
-import com.github.jsonldjava.core.{ JsonLdOptions, JsonLdProcessor }
+import com.github.jsonldjava.core.{JsonLdOptions, JsonLdProcessor}
 import com.github.jsonldjava.utils.JsonUtils
-import org.apache.commons.rdf.jsonldjava._
-import org.apache.jena.riot.RiotException
 
 class Lab extends App {
 

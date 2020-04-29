@@ -1,16 +1,17 @@
 package mario.tfm.restapi
 
-import akka.actor.{ ActorRef, ActorSystem }
+import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ Await, ExecutionContext, Future }
-import scala.util.{ Failure, Success }
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success}
+import mario.tfm.parameters.Arguments
 
 //#main-class
-object QuickstartServer extends App with UserRoutes {
+object QuickstartServer extends App with RoutesOrchestator {
 
   // set up ActorSystem and other dependencies here
   //#main-class
@@ -18,13 +19,13 @@ object QuickstartServer extends App with UserRoutes {
   implicit val system: ActorSystem = ActorSystem("tfmapi")
   implicit val materializer: ActorMaterializer = ActorMaterializer()
   implicit val executionContext: ExecutionContext = system.dispatcher
+
   //#server-bootstrapping
 
-  val userRegistryActor: ActorRef = system.actorOf(UserRegistryActor.props, "userRegistryActor")
-
+  implicit val config = Arguments.getArgs(args)
   //#main-class
   // from the UserRoutes trait
-  lazy val routes: Route = userRoutes
+  lazy val routes: Route = RoutesOrchestator
   //#main-class
 
   //#http-server
