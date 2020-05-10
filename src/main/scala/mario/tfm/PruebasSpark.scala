@@ -2,11 +2,13 @@ package mario.tfm
 
 
 import java.text.SimpleDateFormat
-import org.apache.spark.sql.functions
-.{stddev, variance, hour, minute, second}
+import java.util
+import java.util.UUID
+import java.util.stream.Collectors
 
+import org.apache.spark.sql.functions.{hour, minute, second, stddev, variance}
 import org.apache.spark.sql.functions.{col, to_utc_timestamp}
-import org.apache.spark.sql.{Column, DataFrame, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, SaveMode, SparkSession}
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import play.api.libs.json.{JsNumber, JsObject, JsString, JsValue, Json}
 
@@ -28,6 +30,11 @@ object PruebasSpark extends App {
     .config("spark.sql.parquet.compression.codec", "snappy")
     .config("spark.sql.parquet.mergeSchema", "true")
     .config("spark.sql.parquet.binaryAsString", "true")
+    .config("spark.sql.catalogImplementation","hive")
+    .config("hive.metastore.uris","hdfs://localhost:9000/tmp/hive/mario")
+    .config("hive.metastore.warehouse.dir", "hdfs://localhost:9000/tmp/hive/mario")
+    .config("spark.sql.warehouse.dir", "hdfs:////tmp/hive/mario")
+    .enableHiveSupport()
     .getOrCreate
 
   import spark.sqlContext.implicits._
@@ -678,19 +685,25 @@ object PruebasSpark extends App {
   val path = "hdfs://localhost:9000/OffStreetParking/*"
   val dfFull = spark.read.parquet(path).filter("id == '" + "urn:ngsi-ld:OffStreetParking:Downtown02" + "'")
 
-  dfFull.show(false)
-  val result = getAggrMethodPropertyId("urn:ngsi-ld:OffStreetParking:Downtown02",
-    "availableSpotNumber", m, p,
-    datf, datt)
+  dfFull.printSchema()
 
-  println(result)
-
-  val dfPrueba = Seq(
+  val someDF = Seq(
     (8, "bat"),
     (64, "mouse"),
     (-27, "horse")
   ).toDF("number", "word")
 
-  //val uuid = UUID.randomUUID().toString
-  //df.write.parquet("hdfs://localhost:9000/" + uuid)
+  someDF.show()
+  someDF.coalesce(1).write.parquet("hdfs://localhost:9000/Prueba/prueba2/prueba.parquet")
+
+
+  /*
+
+  val result = getAggrMethodPropertyId("urn:ngsi-ld:OffStreetParking:Downtown02",
+    "availableSpotNumber", m, p,
+    datf, datt)
+
+  println(result)*/
+
+
 }

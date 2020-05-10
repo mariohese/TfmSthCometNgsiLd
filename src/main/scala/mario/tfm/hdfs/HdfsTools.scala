@@ -2,7 +2,7 @@ package mario.tfm.hdfs
 
 import java.lang.NullPointerException
 import java.text.SimpleDateFormat
-import java.util.UUID
+import java.util.{Calendar, UUID}
 import java.util.logging.Logger
 
 import akka.http.scaladsl.model.StatusCodes
@@ -18,54 +18,6 @@ import org.apache.spark.sql.functions.{hour, minute, second, stddev, variance}
 
 object HdfsTools extends App {
 
-  val spark = SparkSession.builder
-    .appName("SparkSession")
-    .master("local[4]")
-    .getOrCreate
-  import spark.implicits._
-  lazy val logger = Logger.getLogger(this.getClass.getSimpleName)
-
-
-
-  val jsonString = """{"id":"urn:ngsi-ld:Notification:5e78b78f455cbceffa17b499","type":"Notification","subscriptionId":"urn:ngsi-ld:Subscription:01","@context":"http://uri.etsi.org/ngsi-ld/v1/ngsi-ld-core-context.jsonld","notifiedAt":"2020-03-23T13:20:15Z","data":[{"id":"urn:ngsi-ld:Vehicle:A4501","type":"Vehicle","brandName":{"type":"Property","value":"Mercedes"},"isParked":{"type":"Relationship","object":"urn:ngsi-ld:OffStreetParking:Downtown1","providedBy":{"type":"Relationship","object":"urn:ngsi-ld:Person:Bob"},"observedAt":"2018-12-04T12:00:00Z"}}, {"id":"urn:ngsi-ld:PARKING","type":"PARKING","brandName":{"type":"Property","value":"CARREFOUR"},"isParked":{"type":"Relationship","object":"urn:ngsi-ld:OffStreetParking:Downtown1","providedBy":{"type":"Relationship","object":"urn:ngsi-ld:Person:Bob"},"observedAt":"2018-12-04T12:00:00Z"}}]}"""
-
-  Try(Json.parse(jsonString)) match {
-    case Failure(t) => t
-      complete(StatusCodes.BadRequest)
-    case Success(h) =>
-      var fulljson = Vector[JsObject]()
-      var ds = spark.emptyDataset[String]
-
-      try {
-        /*val notifiedAt = (h \ "notifiedAt").as[JsValue]
-        val context = (h \ "@context").as[JsValue]
-        var data = (h \ "data").as[Vector[JsObject]]
-
-        for (i<-data){
-          val c: JsObject = i + ("notifiedAt" -> notifiedAt) + ("context" -> context)
-          logger.info("Tamaño del DS antes: " + ds.count())
-          ds = ds.union(Seq(c.toString()).toDS)
-          logger.info("Tamaño del DS después: " + ds.count())
-          fulljson = fulljson :+ c
-        }
-
-        val df = spark.read.json(ds)
-        logger.info("DATAFRAME TOTAL")
-        df.printSchema()
-        df.collect().foreach(println)
-
-        // 8020
-        df.write.parquet("hdfs://localhost:9000/dataframe.parquet")*/
-
-        val df = spark.read.parquet("hdfs://localhost:9000/dataframe.parquet")
-        df.collect().foreach(println)
-
-     }
-     catch {
-        case _ => println("No funciona")
-     }
-  }
-
   def sendParquet(data: JsObject)(implicit spark: SparkSession): Unit = {
     lazy val logger = Logger.getLogger(this.getClass.getSimpleName)
 
@@ -75,7 +27,6 @@ object HdfsTools extends App {
       case Failure(t) => t
         complete(StatusCodes.BadRequest)
       case Success(h) =>
-        logger.info("Ha parseado bien")
         var fulljson = Vector[JsObject]()
         var ds = spark.emptyDataset[String]
 
@@ -83,28 +34,20 @@ object HdfsTools extends App {
           val notifiedAt = (h \ "notifiedAt").as[JsValue]
           val context = (h \ "@context").as[JsValue]
           val data = (h \ "data").as[Vector[JsObject]]
-          var folder: String = ""
+          var folder: String = (data(0) \ "type").as[String]
 
           for (i<-data){
             val c: JsObject = i + ("notifiedAt" -> notifiedAt) + ("context" -> context)
-            folder= (i \ "type").as[String]
-            logger.info("NOMBRE FOLDER : "+ folder)
-            logger.info(c.toString())
-            logger.info("Tamaño del DS antes: " + ds.count())
             ds = ds.union(Seq(c.toString()).toDS)
-            logger.info("Tamaño del DS después: " + ds.count())
             fulljson = fulljson :+ c
           }
 
           val df = spark.read.json(ds)
-          logger.info("DATAFRAME TOTAL")
-          df.printSchema()
-          df.show(false)
-          df.collect().foreach(println)
 
           // 8020
           val uuid = UUID.randomUUID().toString
-          df.write.parquet("hdfs://localhost:9000/"+ folder + "/" + uuid)
+          val date = new SimpleDateFormat("d-M-y").format(Calendar.getInstance().getTime)
+          df.write.parquet("hdfs://localhost:9000/"+ folder + "/" +  date.toString + "/" + uuid)
 
         }
         catch {
@@ -118,118 +61,127 @@ object HdfsTools extends App {
             dateTo: Option[String])(implicit spark: SparkSession) = {
 
     lazy val logger = Logger.getLogger(this.getClass.getSimpleName)
-    var data = Array[String]()
     var result = ""
-    val df = spark.read.parquet("hdfs://localhost:9000/" +
-      id.split(":")(2) + "/*" )
-      .filter("id == '" + id + "'")
 
-    import org.apache.spark.sql.functions.to_timestamp
-    //df.withColumn("ts", df("notifiedAt").cast(TimestampType)).show(2, false)
+    try {
+      var data = Array[String]()
 
-    if ((dateFrom isDefined) && (dateTo isDefined)){
+      var df = spark.read.parquet("hdfs://localhost:9000/" +
+        id.split(":")(2) + "/*/*" )
+        .filter("id == '" + id + "'")
 
-      val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
-      val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
-      val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
-      val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
+      if ((dateFrom isDefined) && (dateTo isDefined)){
 
-      val df2 = df
-        .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
-        .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
+        val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
+        val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
+        val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
+        val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
 
-      df2.show()
-      data = df2.toJSON.collect()
-      result = Json.toJson(data).toString().replace("\\\"", "")
+        val df2 = df
+          .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
+          .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
+          .withColumnRenamed("context", "@context")
+        df2.show()
+        data = df2.toJSON.collect()
+        result = Json.toJson(data).toString().replace("\\\"", "")
 
+      }
+      else if ((dateFrom isDefined) && (dateTo isEmpty)){
+        val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
+        val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
+
+        val df2 = df.filter(to_utc_timestamp(col("notifiedAt"),
+          "Europe/Madrid") >= from)
+          .withColumnRenamed("context", "@context")
+
+        data = df2.toJSON.collect()
+        result = Json.toJson(data).toString().replace("\\\"", "")
+
+      }
+      else if ((dateFrom isEmpty) && (dateTo isDefined)){
+        val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
+        val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
+
+        val df2 = df.filter(to_utc_timestamp(col("notifiedAt"),
+          "Europe/Madrid") <= to)
+          .withColumnRenamed("context", "@context")
+
+        data = df2.toJSON.collect()
+        result = Json.toJson(data).toString().replace("\\\"", "")
+      }
+      else {
+        val df2 = df.withColumnRenamed("context", "@context")
+        data = df2.toJSON.collect()
+        result = Json.toJson(data).toString().replace("\\\"", "")
+      }
     }
-    else if ((dateFrom isDefined) && (dateTo isEmpty)){
-      val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
-      val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
 
-      val df2 = df.filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
-
-      data = df2.toJSON.collect()
-      result = Json.toJson(data).toString().replace("\\\"", "")
-
-    }
-    else if ((dateFrom isEmpty) && (dateTo isDefined)){
-      val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
-      val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
-
-      val df2 = df.filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
-      df2.show()
-      data = df2.toJSON.collect()
-      result = Json.toJson(data).toString().replace("\\\"", "")
-    }
-    else {
-      data = df.toJSON.collect()
-      result = Json.toJson(data).toString().replace("\\\"", "")
+    catch{
+      case e: java.lang.ArrayIndexOutOfBoundsException =>
+        val c: JsValue = JsObject(Seq("Error"
+          -> JsString("El ID en NGSI-LD es representado con una URI con " +
+          "estructura urn:ngsi-ld:<type of entity>:<unique identifier>")))
+        result = c.toString()
     }
 
-    //val data = df.filter("id == '" + id + "'").toJSON.collect()
-    //val result = df.select(field).toJSON.collect()
-
-    //Json.toJson(data).toString().replace("\\", "")
     result
   }
 
   def countGetId(id: String, dateFrom: Option[String],
                  dateTo: Option[String])(implicit spark: SparkSession) = {
 
-    import org.apache.spark.sql.types._
-
-    var data = Array[String]()
     var result = ""
-    val df = spark.read.parquet("hdfs://localhost:9000/" +
-      id.split(":")(2) + "/*")
-      .filter("id == '" + id + "'")
 
-    import org.apache.spark.sql.functions.to_timestamp
-    //df.withColumn("ts", df("notifiedAt").cast(TimestampType)).show(2, false)
+    try {
+      var data = Array[String]()
+      val df = spark.read.parquet("hdfs://localhost:9000/" +
+        id.split(":")(2) + "/*/*")
+        .filter("id == '" + id + "'")
 
-    if ((dateFrom isDefined) && (dateTo isDefined)){
+      if ((dateFrom isDefined) && (dateTo isDefined)){
 
-      val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
-      val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
-      val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
-      val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
+        val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
+        val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
+        val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
+        val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
 
-      val df2 = df
-        .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
-        .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
+        val df2 = df
+          .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
+          .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
 
-      val c : JsValue = JsObject(Seq("count" -> JsNumber(df2.count())))
-      result = c.toString()
-
-    }
-    else if ((dateFrom isDefined) && (dateTo isEmpty)){
-      val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
-      val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
-
-      val df2 = df.filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
-
-      val c : JsValue = JsObject(Seq("count" -> JsNumber(df2.count())))
-      result = c.toString()
-
-      /*if (count isDefined) {
         val c : JsValue = JsObject(Seq("count" -> JsNumber(df2.count())))
         result = c.toString()
-      }*/
 
-    }
-    else if ((dateFrom isEmpty) && (dateTo isDefined)){
-      val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
-      val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
+      }
+      else if ((dateFrom isDefined) && (dateTo isEmpty)){
+        val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
+        val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
 
-      val df2 = df.filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
-      val c : JsValue = JsObject(Seq("count" -> JsNumber(df2.count())))
-      result = c.toString()
+        val df2 = df.filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
+
+        val c : JsValue = JsObject(Seq("count" -> JsNumber(df2.count())))
+        result = c.toString()
+      }
+      else if ((dateFrom isEmpty) && (dateTo isDefined)){
+        val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
+        val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
+
+        val df2 = df.filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
+        val c : JsValue = JsObject(Seq("count" -> JsNumber(df2.count())))
+        result = c.toString()
+      }
+      else {
+        data = df.toJSON.collect()
+        val c : JsValue = JsObject(Seq("count" -> JsNumber(df.count())))
+        result = c.toString()
+      }
     }
-    else {
-      data = df.toJSON.collect()
-      val c : JsValue = JsObject(Seq("count" -> JsNumber(df.count())))
-      result = c.toString()
+    catch{
+      case e: java.lang.ArrayIndexOutOfBoundsException =>
+        val c: JsValue = JsObject(Seq("Error"
+          -> JsString("El ID en NGSI-LD es representado con una URI con " +
+          "estructura urn:ngsi-ld:<type of entity>:<unique identifier>")))
+        result = c.toString()
     }
 
     result
@@ -243,7 +195,7 @@ object HdfsTools extends App {
     var data = Array[String]()
     var result = ""
     val df = spark.read.parquet("hdfs://localhost:9000/" +
-    tipo + "/*")
+    tipo + "/*/*")
       .filter("type == '" + tipo + "'")
 
     if ((dateFrom isDefined) && (dateTo isDefined)){
@@ -256,19 +208,20 @@ object HdfsTools extends App {
       val df2 = df
         .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
         .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
+        .withColumnRenamed("context", "@context")
 
-      df2.show()
       data = df2.toJSON.collect()
       result = Json.toJson(data).toString().replace("\\\"", "")
-
     }
+
     else if ((dateFrom isDefined) && (dateTo isEmpty)){
       val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
       val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
 
-      val df2 = df.filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
+      val df2 = df.filter(to_utc_timestamp(col("notifiedAt"),
+        "Europe/Madrid") >= from)
+        .withColumnRenamed("context", "@context")
 
-      df2.show()
       data = df2.toJSON.collect()
       result = Json.toJson(data).toString().replace("\\\"", "")
 
@@ -278,12 +231,14 @@ object HdfsTools extends App {
       val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
 
       val df2 = df.filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
-      df2.show()
+        .withColumnRenamed("context", "@context")
+
       data = df2.toJSON.collect()
       result = Json.toJson(data).toString().replace("\\\"", "")
     }
     else {
-      data = df.toJSON.collect()
+      val df2 = df.withColumnRenamed("context", "@context")
+      data = df2.toJSON.collect()
       result = Json.toJson(data).toString().replace("\\\"", "")
     }
 
@@ -296,7 +251,7 @@ object HdfsTools extends App {
     var data = Array[String]()
     var result = ""
     val df = spark.read.parquet("hdfs://localhost:9000/" +
-    tipo + "/*")
+    tipo + "/*/*")
       .filter("type == '" + tipo + "'")
 
     import org.apache.spark.sql.functions.to_timestamp
@@ -348,53 +303,76 @@ object HdfsTools extends App {
                  dateTo: Option[String], lastN: Option[String])
                 (implicit spark: SparkSession) = {
 
-    var data = Array[String]()
     var result = ""
-    val df = spark.read.parquet("hdfs://localhost:9000/" +
-      id.split(":")(2) + "/*")
-      .filter("id == '" + id + "'")
+    var data = Array[String]()
 
-    if ((dateFrom isDefined) && (dateTo isDefined)){
+    try {
+      val df = spark.read.parquet("hdfs://localhost:9000/" +
+        id.split(":")(2) + "/*/*")
+        .filter("id == '" + id + "'")
 
-      val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
-      val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
-      val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
-      val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
+      if ((dateFrom isDefined) && (dateTo isDefined)){
 
-      val df2 = df
-        .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
-        .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
-        .orderBy(col("notifiedAt").desc)
+        val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
+        val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
+        val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
+        val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
 
-      data = df2.toJSON.collect()
-      result = Json.toJson(data).head(lastN.get.toInt).toString().replace("\\\"", "")
+        val df2 = df
+          .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
+          .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
+          .withColumnRenamed("context", "@context")
+          .orderBy(col("notifiedAt").desc)
 
+        data = df2.toJSON.head(lastN.get.toInt)
+        result = Json.toJson(data)
+          .toString()
+          .replace("\\\"", "")
+      }
+      else if ((dateFrom isDefined) && (dateTo isEmpty)){
+        val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
+        val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
+
+        val df2 = df.filter(to_utc_timestamp(col("notifiedAt"),
+          "Europe/Madrid") >= from)
+          .withColumnRenamed("context", "@context")
+          .orderBy(col("notifiedAt").desc)
+
+        data = df2.toJSON.head(lastN.get.toInt)
+        result = Json.toJson(data)
+          .toString()
+          .replace("\\\"", "")
+      }
+      else if ((dateFrom isEmpty) && (dateTo isDefined)){
+        val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
+        val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
+
+        val df2 = df.filter(to_utc_timestamp(col("notifiedAt"),
+          "Europe/Madrid") <= to)
+          .withColumnRenamed("context", "@context")
+          .orderBy(col("notifiedAt").desc)
+
+        data = df2.toJSON.head(lastN.get.toInt)
+        result = Json.toJson(data)
+          .toString()
+          .replace("\\\"", "")
+
+      }
+      else {
+        val df2 = df.withColumnRenamed("context", "@context")
+        data = df2.toJSON.head(lastN.get.toInt)
+        result = Json.toJson(data)
+          .toString()
+          .replace("\\\"", "")
+      }
     }
-    else if ((dateFrom isDefined) && (dateTo isEmpty)){
-      val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
-      val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
 
-      val df2 = df.filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
-        .orderBy(col("notifiedAt").desc)
-
-      data = df2.toJSON.collect()
-      result = Json.toJson(data).head(lastN.get.toInt).toString().replace("\\\"", "")
-
-    }
-    else if ((dateFrom isEmpty) && (dateTo isDefined)){
-      val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
-      val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
-
-      val df2 = df.filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
-        .orderBy(col("notifiedAt").desc)
-      data = df2.toJSON.collect()
-      result = Json.toJson(data).head(lastN.get.toInt).toString().replace("\\\"", "")
-
-    }
-    else {
-      data = df.orderBy(col("notifiedAt").desc).toJSON.collect()
-      result = Json.toJson(data).head(lastN.get.toInt).toString().replace("\\\"", "")
-
+    catch{
+      case e: java.lang.ArrayIndexOutOfBoundsException =>
+        val c: JsValue = JsObject(Seq("Error"
+          -> JsString("El ID en NGSI-LD es representado con una URI con " +
+          "estructura urn:ngsi-ld:<type of entity>:<unique identifier>")))
+        result = c.toString()
     }
 
     result
@@ -405,12 +383,10 @@ object HdfsTools extends App {
                    dateTo: Option[String], lastN: Option[String])
                   (implicit spark: SparkSession) = {
 
-    import org.apache.spark.sql.types._
-
     var data = Array[String]()
     var result = ""
     val df = spark.read.parquet("hdfs://localhost:9000/" +
-    tipo + "/*")
+    tipo + "/*/*")
       .filter("type == '" + tipo + "'")
 
     if ((dateFrom isDefined) && (dateTo isDefined)){
@@ -423,36 +399,47 @@ object HdfsTools extends App {
       val df2 = df
         .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
         .filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
+        .withColumnRenamed("context", "@context")
         .orderBy(col("notifiedAt").desc)
 
-      data = df2.toJSON.collect()
-      result = Json.toJson(data).head(lastN.get.toInt).toString().replace("\\\"", "")
-
+      data = df2.toJSON.head(lastN.get.toInt)
+      result = Json.toJson(data)
+        .toString()
+        .replace("\\\"", "")
     }
     else if ((dateFrom isDefined) && (dateTo isEmpty)){
       val dfrom = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateFrom.get)
       val from = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dfrom)
 
-      val df2 = df.filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") >= from)
+      val df2 = df.filter(to_utc_timestamp(col("notifiedAt"),
+        "Europe/Madrid") >= from)
+        .withColumnRenamed("context", "@context")
         .orderBy(col("notifiedAt").desc)
 
-      data = df2.toJSON.collect()
-      result = Json.toJson(data).head(lastN.get.toInt).toString().replace("\\\"", "")
-
+      data = df2.toJSON.head(lastN.get.toInt)
+      result = Json.toJson(data)
+        .toString()
+        .replace("\\\"", "")
     }
     else if ((dateFrom isEmpty) && (dateTo isDefined)){
       val dto = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(dateTo.get)
       val to = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dto)
 
-      val df2 = df.filter(to_utc_timestamp(col("notifiedAt"), "Europe/Madrid") <= to)
+      val df2 = df.filter(to_utc_timestamp(col("notifiedAt"),
+        "Europe/Madrid") <= to)
+        .withColumnRenamed("context", "@context")
         .orderBy(col("notifiedAt").desc)
-      data = df2.toJSON.collect()
-      result = Json.toJson(data).head(lastN.get.toInt).toString().replace("\\\"", "")
 
+      data = df2.toJSON.head(lastN.get.toInt)
+      result = Json.toJson(data)
+        .toString()
+        .replace("\\\"", "")
     }
     else {
-      data = df.orderBy(col("notifiedAt").desc).toJSON.collect()
-      result = Json.toJson(data).head(lastN.get.toInt).toString().replace("\\\"", "")
+      data = df
+        .withColumnRenamed("context", "@context")
+        .orderBy(col("notifiedAt").desc).toJSON.head(lastN.get.toInt)
+      result = Json.toJson(data).toString().replace("\\\"", "")
     }
     result
   }
@@ -463,7 +450,7 @@ object HdfsTools extends App {
                                 dateFrom: Option[String], dateTo: Option[String])
                                (implicit spark: SparkSession) = {
 
-    val path: String = "hdfs://localhost:9000/" + tipo + "/*"
+    val path: String = "hdfs://localhost:9000/" + tipo + "/*/*"
     var result = ""
 
 
@@ -503,7 +490,7 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else {
-          val c: JsValue = JsObject(Seq("result" -> JsString("Periodo no válido")))
+          val c: JsValue = JsObject(Seq("Error" -> JsString("Periodo no válido")))
           result = c.toString()
         }
       }
@@ -530,7 +517,7 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else {
-          val c: JsValue = JsObject(Seq("result" -> JsString("Periodo no válido")))
+          val c: JsValue = JsObject(Seq("Error" -> JsString("Periodo no válido")))
           result = c.toString()
         }
       }
@@ -557,7 +544,7 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else {
-          val c: JsValue = JsObject(Seq("result" -> JsString("Periodo no válido")))
+          val c: JsValue = JsObject(Seq("Error" -> JsString("Periodo no válido")))
           result = c.toString()
         }
       }
@@ -583,7 +570,7 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else {
-          val c: JsValue = JsObject(Seq("result" -> JsString("Periodo no válido")))
+          val c: JsValue = JsObject(Seq("Error" -> JsString("Periodo no válido")))
           result = c.toString()
         }
       }
@@ -609,7 +596,7 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else {
-          val c: JsValue = JsObject(Seq("result" -> JsString("Periodo no válido")))
+          val c: JsValue = JsObject(Seq("Error" -> JsString("Periodo no válido")))
           result = c.toString()
         }
 
@@ -636,12 +623,12 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else {
-          val c: JsValue = JsObject(Seq("result" -> JsString("Periodo no válido")))
+          val c: JsValue = JsObject(Seq("Error" -> JsString("Periodo no válido")))
           result = c.toString()
         }
       }
       else {
-        val c: JsValue = JsObject(Seq("result" -> JsString("Método no válido")))
+        val c: JsValue = JsObject(Seq("Error" -> JsString("Método no válido")))
         result = c.toString()
       }
     }
@@ -691,12 +678,12 @@ object HdfsTools extends App {
         result = Json.toJson(data).toString().replace("\\\"", "")
       }
       else {
-        val c: JsValue = JsObject(Seq("result" -> JsString("Método no válido")))
+        val c: JsValue = JsObject(Seq("Error" -> JsString("Método no válido")))
         result = c.toString()
       }
     }
     else {
-      val c: JsValue = JsObject(Seq("result" -> JsString("Método no introducido")))
+      val c: JsValue = JsObject(Seq("Error" -> JsString("Método no introducido")))
       result = c.toString()
     }
     result
@@ -760,7 +747,7 @@ object HdfsTools extends App {
                              (implicit spark: SparkSession) = {
 
     val path: String = "hdfs://localhost:9000/" +
-      id.split(":")(2) + "/*"
+      id.split(":")(2) + "/*/*"
 
     var data = Array[String]()
     var result = ""
@@ -804,7 +791,7 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else {
-          val c: JsValue = JsObject(Seq("result" -> JsString("Periodo no válido")))
+          val c: JsValue = JsObject(Seq("Error" -> JsString("Periodo no válido")))
           result = c.toString()
         }
       }
@@ -831,7 +818,7 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else {
-          val c: JsValue = JsObject(Seq("result" -> JsString("Periodo no válido")))
+          val c: JsValue = JsObject(Seq("Error" -> JsString("Periodo no válido")))
           result = c.toString()
         }
       }
@@ -858,7 +845,7 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else {
-          val c: JsValue = JsObject(Seq("result" -> JsString("Periodo no válido")))
+          val c: JsValue = JsObject(Seq("Error" -> JsString("Periodo no válido")))
           result = c.toString()
         }
       }
@@ -885,7 +872,7 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else {
-          val c: JsValue = JsObject(Seq("result" -> JsString("Periodo no válido")))
+          val c: JsValue = JsObject(Seq("Error" -> JsString("Periodo no válido")))
           result = c.toString()
         }
       }
@@ -912,7 +899,7 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else {
-          val c: JsValue = JsObject(Seq("result" -> JsString("Periodo no válido")))
+          val c: JsValue = JsObject(Seq("Error" -> JsString("Periodo no válido")))
           result = c.toString()
         }
 
@@ -939,12 +926,12 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else {
-          val c: JsValue = JsObject(Seq("result" -> JsString("Periodo no válido")))
+          val c: JsValue = JsObject(Seq("Error" -> JsString("Periodo no válido")))
           result = c.toString()
         }
       }
       else {
-        val c: JsValue = JsObject(Seq("result" -> JsString("Método no válido")))
+        val c: JsValue = JsObject(Seq("Error" -> JsString("Método no válido")))
         result = c.toString()
       }
     }
@@ -998,12 +985,12 @@ object HdfsTools extends App {
         result = Json.toJson(data).toString().replace("\\\"", "")
       }
       else {
-        val c: JsValue = JsObject(Seq("result" -> JsString("Método no válido")))
+        val c: JsValue = JsObject(Seq("Error" -> JsString("Método no válido")))
         result = c.toString()
       }
     }
     else {
-      val c: JsValue = JsObject(Seq("result" -> JsString("Método no introducido")))
+      val c: JsValue = JsObject(Seq("Error" -> JsString("Método no introducido")))
       result = c.toString()
     }
     result

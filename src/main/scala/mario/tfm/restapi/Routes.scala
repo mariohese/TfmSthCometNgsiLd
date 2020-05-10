@@ -60,7 +60,12 @@ object Routes {
               complete(StatusCodes.BadRequest)
             case Success(h) =>
               try {
-                val data = (h \ "data").as[Vector[JsObject]]
+                val notifiedAt = (h \ "notifiedAt").as[JsValue]
+                val context = (h \ "@context").as[JsValue]
+                var data = (h \ "data").as[Vector[JsObject]]
+
+                data = data.map(i => i + ("notifiedAt" -> notifiedAt) + ("context" -> context))
+
                 println("data 1 " + data)
                 // sendToPostgres(null, data)
                 sendToMySql(data)
@@ -84,12 +89,11 @@ object Routes {
       // Esto modificarlo para el caso NoSQL
       pathEnd {
         post {
-          logger.info(s"Entity String: ${entity(as[String]).toString}")
           entity(as[String]) { jsonString =>
-            println("JSON STRING: " + jsonString)
+            logger.info("JSON STRING: " + jsonString)
             // val jsonObject: JsValue = Json.parse(jsonString)
 
-            println("Ha entrado")
+
             Try(Json.parse(jsonString)) match {
               case Failure(t) => t
                 complete(StatusCodes.BadRequest)

@@ -60,7 +60,6 @@ trait RoutesOrchestator {
   // we leave these abstract, since they will be provided by the App
   println("Se está ejecutando")
   implicit def system: ActorSystem
-  implicit def materializer: ActorMaterializer
   implicit def ec: ExecutionContext = system.dispatcher
   implicit def http: HttpExt = Http(system)
   implicit def config: Config
@@ -97,7 +96,7 @@ trait RoutesOrchestator {
 
       concat (
         // rc de receive context
-        pathPrefix("rc") {
+        pathPrefix("notification") {
           receiveContextSql
         },
 
@@ -106,7 +105,7 @@ trait RoutesOrchestator {
         },
         // http://host:port/path?key=authType&value=Basic345
 
-        pathPrefix ("STH" / "v2" / "contextEntities"){
+        pathPrefix ("data"){
 
           concat (
 
@@ -197,12 +196,14 @@ trait RoutesOrchestator {
         .config("spark.sql.parquet.compression.codec", "snappy")
         .config("spark.sql.parquet.mergeSchema", "true")
         .config("spark.sql.parquet.binaryAsString", "true")
+        .config("spark.hive.mapred.supports.subdirectories","true")
+        .config("spark.hadoop.mapreduce.input.fileinputformat.input.dir.recursive","true")
         .getOrCreate
 
 
       concat (
         // rc de receive context
-        pathPrefix("rc") {
+        pathPrefix("notification") {
           receiveContextNoSql
         },
 
@@ -211,7 +212,7 @@ trait RoutesOrchestator {
         },
         // http://host:port/path?key=authType&value=Basic345
 
-        pathPrefix ("getData"){
+        pathPrefix ("data"){
 
           concat (
 

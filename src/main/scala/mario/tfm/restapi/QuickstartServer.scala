@@ -17,7 +17,7 @@ object QuickstartServer extends App with RoutesOrchestator {
   //#main-class
   //#server-bootstrapping
   implicit val system: ActorSystem = ActorSystem("tfmapi")
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
+  //implicit val materializer: ActorMaterializer = ActorMaterializer()
   implicit val executionContext: ExecutionContext = system.dispatcher
 
   //#server-bootstrapping

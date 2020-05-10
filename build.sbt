@@ -39,6 +39,7 @@ lazy val root = (project in file(".")).
       "org.apache.spark" %% "spark-core" % sparkVersion,
       "org.apache.spark" %% "spark-sql" % sparkVersion,
       "org.json" % "json" % "20180813",
+      "org.apache.spark" %% "spark-hive" % sparkVersion,
       "org.apache.spark" %% "spark-yarn" % sparkVersion,
       "com.typesafe.akka" %% "akka-http-testkit"    % akkaHttpVersion % Test,
       "com.typesafe.akka" %% "akka-testkit"         % akkaVersion     % Test,
