@@ -1,17 +1,10 @@
 package mario.tfm.restapi
 
-import java.util
-
-import akka.actor.{ActorRef, ActorSystem}
-import akka.event.Logging
-
+import akka.actor.ActorSystem
 import scala.concurrent.duration._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.model.{ContentType, ContentTypes, HttpCharsets, HttpEntity, HttpMethods, HttpRequest, HttpResponse, MediaType, MediaTypes, RequestEntity, StatusCodes}
 import akka.http.scaladsl.server.{Route, StandardRoute}
-import mario.tfm.restapi.RestApiTools.postApplication
-import akka.http.scaladsl.server.directives.{DebuggingDirectives, LoggingMagnet}
-import akka.http.scaladsl.server.directives.MethodDirectives.delete
 import akka.http.scaladsl.server.directives.MethodDirectives.get
 import akka.http.scaladsl.server.directives.MethodDirectives.post
 import akka.http.scaladsl.server.directives.RouteDirectives.complete
@@ -49,16 +42,7 @@ import mario.tfm.mysql.SqlTools._
 trait RoutesOrchestator {
   //#user-routes-class
 
-  /*var connection: Connection = null
-  try {
-    connection = createConnection()
-  }
-  catch {
-    case e => e.printStackTrace()
-  }*/
-
   // we leave these abstract, since they will be provided by the App
-  println("Se está ejecutando")
   implicit def system: ActorSystem
   implicit def ec: ExecutionContext = system.dispatcher
   implicit def http: HttpExt = Http(system)
@@ -216,39 +200,32 @@ trait RoutesOrchestator {
 
           concat (
 
-            path("count" /"id" / Segment){
-              (id) =>
-                get {
-                  parameters('dateFrom?, 'dateTo?){
-                    (dateFrom: Option[String], dateTo: Option[String]) =>
-
-                      val result = countGetId(id, dateFrom, dateTo)
-                      complete(HttpEntity(ContentTypes.`application/json`, result))
-                  }
-                }
-            },
-            path("count" /"type" / Segment){
-              (tipo) =>
-                get {
-                  parameters('dateFrom?, 'dateTo?){
-                    (dateFrom: Option[String], dateTo: Option[String]) =>
-
-                      val result = countGetType(tipo, dateFrom, dateTo)
-                      complete(HttpEntity(ContentTypes.`application/json`, result))
-                  }
-                }
-            },
-
             path("id" / Segment){
               (id) =>
                 get {
-                  parameters('dateFrom?, 'dateTo?, 'lastN?){
+                  parameters('dateFrom?, 'dateTo?, 'lastN?, 'count?){
                     (dateFrom: Option[String], dateTo: Option[String],
-                     lastN: Option[String]) =>
+                     lastN: Option[String], count: Option[String]) =>
 
                       if (lastN isEmpty) {
-                        val result = getId(id, dateFrom, dateTo)
-                        complete(HttpEntity(ContentTypes.`application/json`, result))
+                        if (count isDefined){
+                          if (count.get.equals("true")){
+                            val result = countGetId(id, dateFrom, dateTo)
+                            complete(HttpEntity(ContentTypes.`application/json`, result))
+                          }
+                          else if (count.get.equals("false")){
+                            val result = getId(id, dateFrom, dateTo)
+                            complete(HttpEntity(ContentTypes.`application/json`, result))
+                          }
+                          else {
+                            val c: JsValue = JsObject(Seq("Error" -> JsString("Valor de count no válido")))
+                            complete(HttpEntity(ContentTypes.`application/json`, c.toString()))
+                          }
+                        }
+                        else {
+                          val result = getId(id, dateFrom, dateTo)
+                          complete(HttpEntity(ContentTypes.`application/json`, result))
+                        }
                       }
                       else {
                         val result = getIdLastN(id, dateFrom, dateTo, lastN)
@@ -260,13 +237,29 @@ trait RoutesOrchestator {
             path("type" / Segment){
               (tipo) =>
                 get {
-                  parameters('dateFrom?, 'dateTo?, 'lastN?){
+                  parameters('dateFrom?, 'dateTo?, 'lastN?, 'count?){
                     (dateFrom: Option[String], dateTo: Option[String],
-                     lastN: Option[String]) =>
+                     lastN: Option[String], count: Option[String]) =>
 
                       if (lastN isEmpty) {
-                        val result = getType(tipo, dateFrom, dateTo)
-                        complete(HttpEntity(ContentTypes.`application/json`, result))
+                        if (count isDefined){
+                          if (count.get.equals("true")){
+                            val result = countGetType(tipo, dateFrom, dateTo)
+                            complete(HttpEntity(ContentTypes.`application/json`, result))
+                          }
+                          else if (count.get.equals("false")){
+                            val result = getType(tipo, dateFrom, dateTo)
+                            complete(HttpEntity(ContentTypes.`application/json`, result))
+                          }
+                          else {
+                            val c: JsValue = JsObject(Seq("Error" -> JsString("Valor de count no válido")))
+                            complete(HttpEntity(ContentTypes.`application/json`, c.toString()))
+                          }
+                        }
+                        else {
+                          val result = getType(tipo, dateFrom, dateTo)
+                          complete(HttpEntity(ContentTypes.`application/json`, result))
+                        }
                       }
                       else {
                         val result = getTypeLastN(tipo, dateFrom, dateTo, lastN)
@@ -281,14 +274,14 @@ trait RoutesOrchestator {
                 concat (
                   pathEnd {
                     get {
-                      parameters('aggrMethod?, 'aggrPeriod?,'dateFrom?, 'dateTo?){
+                      parameters('aggrMethod?, 'aggrPeriod?,'dateFrom?, 'dateTo?, 'lastN?){
                         (aggrMethod: Option[String], aggrPeriod: Option[String],
-                         dateFrom: Option[String], dateTo: Option[String]
+                         dateFrom: Option[String], dateTo: Option[String], lastN: Option[String]
                          ) =>
-
                           val result = getAggrMethodPropertyId(id, property,
-                            aggrMethod, aggrPeriod, dateFrom, dateTo)
+                            aggrMethod, aggrPeriod, dateFrom, dateTo, lastN)
                           complete(HttpEntity(ContentTypes.`application/json`, result))
+
                       }
                     }
                   }
@@ -300,14 +293,15 @@ trait RoutesOrchestator {
                 concat (
                   pathEnd {
                     get {
-                      parameters('aggrMethod?, 'aggrPeriod?,'dateFrom?, 'dateTo?){
+                      parameters('aggrMethod?, 'aggrPeriod?,'dateFrom?, 'dateTo?,
+                      'lastN?){
                         (aggrMethod: Option[String], aggrPeriod: Option[String],
-                         dateFrom: Option[String], dateTo: Option[String]
+                         dateFrom: Option[String], dateTo: Option[String],
+                         lastN: Option[String]
                         ) =>
-
                           val result = getAggrMethodPropertyId(id,
                             property + "." + property2,
-                            aggrMethod, aggrPeriod, dateFrom, dateTo)
+                            aggrMethod, aggrPeriod, dateFrom, dateTo, lastN)
                           complete(HttpEntity(ContentTypes.`application/json`, result))
                       }
                     }
@@ -319,12 +313,14 @@ trait RoutesOrchestator {
                 concat (
                   pathEnd {
                     get {
-                      parameters('aggrMethod?, 'aggrPeriod?,'dateFrom?, 'dateTo?){
+                      parameters('aggrMethod?, 'aggrPeriod?,'dateFrom?, 'dateTo?,
+                      'lastN?){
                         (aggrMethod: Option[String], aggrPeriod: Option[String],
-                         dateFrom: Option[String], dateTo: Option[String]
+                         dateFrom: Option[String], dateTo: Option[String],
+                         lastN: Option[String]
                         ) =>
                           val result = getAggrMethodPropertyType(tipo, property,
-                            aggrMethod, aggrPeriod, dateFrom, dateTo)
+                            aggrMethod, aggrPeriod, dateFrom, dateTo, lastN)
                           complete(HttpEntity(ContentTypes.`application/json`, result))
                       }
                     }
@@ -336,13 +332,15 @@ trait RoutesOrchestator {
                 concat (
                   pathEnd {
                     get {
-                      parameters('aggrMethod?, 'aggrPeriod?,'dateFrom?, 'dateTo?){
+                      parameters('aggrMethod?, 'aggrPeriod?,'dateFrom?, 'dateTo?,
+                      'lastN?){
                         (aggrMethod: Option[String], aggrPeriod: Option[String],
-                         dateFrom: Option[String], dateTo: Option[String]
+                         dateFrom: Option[String], dateTo: Option[String],
+                         lastN: Option[String]
                         ) =>
                           val result = getAggrMethodPropertyType(tipo,
                             property + "." + property2,
-                            aggrMethod, aggrPeriod, dateFrom, dateTo)
+                            aggrMethod, aggrPeriod, dateFrom, dateTo, lastN)
                           complete(HttpEntity(ContentTypes.`application/json`, result))
                       }
                     }

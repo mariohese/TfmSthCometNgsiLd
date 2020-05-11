@@ -14,7 +14,7 @@ import org.apache.spark.sql.functions.col
 
 import scala.util.{Failure, Success, Try}
 import org.apache.spark.sql.functions.to_utc_timestamp
-import org.apache.spark.sql.functions.{hour, minute, second, stddev, variance}
+import org.apache.spark.sql.functions.{month,dayofmonth, hour, minute, second, stddev, variance}
 
 object HdfsTools extends App {
 
@@ -447,12 +447,12 @@ object HdfsTools extends App {
   def getAggrMethodPropertyType(tipo: String, property: String,
                                 aggrMethod: Option[String],
                                 aggrPeriod: Option[String],
-                                dateFrom: Option[String], dateTo: Option[String])
+                                dateFrom: Option[String], dateTo: Option[String],
+                                lastN: Option[String])
                                (implicit spark: SparkSession) = {
 
     val path: String = "hdfs://localhost:9000/" + tipo + "/*/*"
     var result = ""
-
 
     if ((aggrMethod isDefined) && (aggrPeriod isDefined)) {
       val method = aggrMethod.get
@@ -467,24 +467,46 @@ object HdfsTools extends App {
         df = spark.read.parquet(path)
           .select("notifiedAt", property + ".value")
       }
+      if (lastN isDefined){
+        df = df.orderBy(col("notifiedAt").desc).limit(lastN.get.toInt)
+      }
       if (method == "avg") {
-        if (period == "hour") {
-          val dfAvg = df.groupBy(hour(col("notifiedAt")))
+        if (period == "month") {
+          val dfAvg = df.groupBy(month(col("notifiedAt")).as("month"))
+            .avg()
+          val data = dfAvg.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "day") {
+          val dfAvg = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"))
+            .avg()
+          val data = dfAvg.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "hour") {
+          val dfAvg = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"))
             .avg()
           val data = dfAvg.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "min") {
-          val dfAvg = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")))
+          val dfAvg = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"))
             .avg()
           val data = dfAvg.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "sec") {
-          val dfAvg = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")),
-            second(col("notifiedAt")))
+          val dfAvg = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"),
+            second(col("notifiedAt")).as("second"))
             .avg()
           val data = dfAvg.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
@@ -495,23 +517,43 @@ object HdfsTools extends App {
         }
       }
       else if (method == "max"){
-        if (period == "hour") {
-          val dfMax = df.groupBy(hour(col("notifiedAt")))
+        if (period == "month") {
+          val dfMax = df.groupBy(month(col("notifiedAt")).as("month"))
+            .max()
+          val data = dfMax.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "day") {
+          val dfMax = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"))
+            .max()
+          val data = dfMax.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+
+        else if (period == "hour") {
+          val dfMax = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"))
             .max()
           val data = dfMax.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "min") {
-          val dfMax = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")))
+          val dfMax = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"))
             .max()
           val data = dfMax.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "sec") {
-          val dfMax = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")),
-            second(col("notifiedAt")))
+          val dfMax = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"),
+            second(col("notifiedAt")).as("second"))
             .max()
           val data = dfMax.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
@@ -522,23 +564,42 @@ object HdfsTools extends App {
         }
       }
       else if (method == "min"){
-        if (period == "hour") {
-          val dfMin = df.groupBy(hour(col("notifiedAt")))
+        if (period == "month") {
+          val dfMin = df.groupBy(month(col("notifiedAt")).as("month"))
+            .min()
+          val data = dfMin.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "day") {
+          val dfMin = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"))
+            .min()
+          val data = dfMin.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "hour") {
+          val dfMin = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"))
             .min()
           val data = dfMin.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "min") {
-          val dfMin = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")))
+          val dfMin = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"))
             .min()
           val data = dfMin.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "sec") {
-          val dfMin = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")),
-            second(col("notifiedAt")))
+          val dfMin = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"),
+            second(col("notifiedAt")).as("second"))
             .min()
           val data = dfMin.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
@@ -563,8 +624,11 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "sec") {
-          val dfSum = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")), second(col("notifiedAt")))
+          val dfSum = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"),
+            second(col("notifiedAt")).as("second"))
             .sum()
           val data = dfSum.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
@@ -575,22 +639,42 @@ object HdfsTools extends App {
         }
       }
       else if (method == "std"){
-        if (period == "hour") {
-          val dfStd = df.groupBy(hour(col("notifiedAt")))
+        if (period == "month") {
+          val dfStd = df.groupBy(month(col("notifiedAt")).as("month"))
+            .agg(stddev("value"))
+          val data = dfStd.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "day") {
+          val dfStd = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"))
+            .agg(stddev("value"))
+          val data = dfStd.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "hour") {
+          val dfStd = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"))
             .agg(stddev("value"))
           val data = dfStd.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "min") {
-          val dfStd = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")))
+          val dfStd = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"))
             .agg(stddev("value"))
           val data = dfStd.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "sec") {
-          val dfStd = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")), second(col("notifiedAt")))
+          val dfStd = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"),
+            second(col("notifiedAt")).as("second"))
             .agg(stddev("value"))
           val data = dfStd.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
@@ -602,22 +686,42 @@ object HdfsTools extends App {
 
       }
       else if (method == "var"){
-        if (period == "hour") {
-          val dfVar = df.groupBy(hour(col("notifiedAt")))
+        if (period == "month") {
+          val dfVar = df.groupBy(month(col("notifiedAt")).as("month"))
+            .agg(variance("value"))
+          val data = dfVar.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "day") {
+          val dfVar = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"))
+            .agg(variance("value"))
+          val data = dfVar.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "hour") {
+          val dfVar = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"))
             .agg(variance("value"))
           val data = dfVar.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "min") {
-          val dfVar = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")))
+          val dfVar = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"))
             .agg(variance("value"))
           val data = dfVar.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "sec") {
-          val dfVar = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")), second(col("notifiedAt")))
+          val dfVar = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"),
+            second(col("notifiedAt")).as("second"))
             .agg(variance("value"))
           val data = dfVar.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
@@ -642,8 +746,18 @@ object HdfsTools extends App {
           .select("notifiedAt", property + ".value")
       }
       else {
-        df = spark.read.parquet(path)
+        try {
+          df = spark.read.parquet(path)
           .select("notifiedAt", property + ".value")
+        }
+        catch {
+          case e: org.apache.spark.sql.AnalysisException =>
+            val c: JsValue = JsObject(Seq("Información"
+              -> JsString("El campo <type> especificado no se encuentra " +
+              "en nuestra base de datos.")))
+            result = c.toString()
+        }
+
       }
 
       if (method == "avg") {
@@ -651,6 +765,7 @@ object HdfsTools extends App {
         val data = dfAvg.toJSON.collect()
         result = Json.toJson(data).toString().replace("\\\"", "")
       }
+
       else if (method == "sum") {
         val dfSum = df.groupBy().sum()
         val data = dfSum.toJSON.collect()
@@ -683,8 +798,22 @@ object HdfsTools extends App {
       }
     }
     else {
-      val c: JsValue = JsObject(Seq("Error" -> JsString("Método no introducido")))
-      result = c.toString()
+      var df = spark.emptyDataFrame
+
+      if ((dateFrom isDefined) || (dateTo isDefined)) {
+        val dF = spark.read.parquet(path)
+        df = getDataInThisTimeframe(dF, path, dateFrom, dateTo, false,"")
+          .select("notifiedAt", property + ".value")
+      }
+      else {
+        df = spark.read.parquet(path)
+          .select("notifiedAt", property + ".value")
+      }
+
+      df = spark.read.parquet(path)
+        .select("notifiedAt", property + ".value")
+      val data = df.toJSON.collect()
+      result = Json.toJson(data).toString().replace("\\\"", "")
     }
     result
   }
@@ -743,7 +872,8 @@ object HdfsTools extends App {
   def getAggrMethodPropertyId(id: String, property: String,
                               aggrMethod: Option[String],
                               aggrPeriod: Option[String],
-                              dateFrom: Option[String], dateTo: Option[String])
+                              dateFrom: Option[String], dateTo: Option[String],
+                              lastN: Option[String])
                              (implicit spark: SparkSession) = {
 
     val path: String = "hdfs://localhost:9000/" +
@@ -768,24 +898,47 @@ object HdfsTools extends App {
           .filter("id == '" + id + "'")
           .select("notifiedAt", property + ".value")
       }
+      if (lastN isDefined){
+        df = df.orderBy(col("notifiedAt").desc).limit(lastN.get.toInt)
+      }
+
       if (method == "avg") {
-        if (period == "hour") {
-          val dfAvg = df.groupBy(hour(col("notifiedAt")))
+        if (period == "month") {
+          val dfAvg = df.groupBy(month(col("notifiedAt")).as("month"))
+            .avg()
+          val data = dfAvg.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "day") {
+          val dfAvg = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"))
+            .avg()
+          val data = dfAvg.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "hour") {
+          val dfAvg = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"))
             .avg()
           val data = dfAvg.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "min") {
-
-          val dfAvg = df.groupBy(hour(col("notifiedAt")), minute(col("notifiedAt")))
+          val dfAvg = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"))
             .avg()
           val data = dfAvg.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "sec") {
-          val dfAvg = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")),
-            second(col("notifiedAt")))
+          val dfAvg = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"),
+            second(col("notifiedAt")).as("second"))
             .avg()
           val data = dfAvg.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
@@ -796,23 +949,43 @@ object HdfsTools extends App {
         }
       }
       else if (method == "max"){
-        if (period == "hour") {
-          val dfMax = df.groupBy(hour(col("notifiedAt")))
+        if (period == "month") {
+          val dfMax = df.groupBy(month(col("notifiedAt")).as("month"))
+            .max()
+          val data = dfMax.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "day") {
+          val dfMax = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"))
+            .max()
+          val data = dfMax.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+
+        else if (period == "hour") {
+          val dfMax = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"))
             .max()
           val data = dfMax.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "min") {
-          val dfMax = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")))
+          val dfMax = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"))
             .max()
           val data = dfMax.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "sec") {
-          val dfMax = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")),
-            second(col("notifiedAt")))
+          val dfMax = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"),
+            second(col("notifiedAt")).as("second"))
             .max()
           val data = dfMax.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
@@ -823,23 +996,42 @@ object HdfsTools extends App {
         }
       }
       else if (method == "min"){
-        if (period == "hour") {
-          val dfMin = df.groupBy(hour(col("notifiedAt")))
+        if (period == "month") {
+          val dfMin = df.groupBy(month(col("notifiedAt")).as("month"))
+            .min()
+          val data = dfMin.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "day") {
+          val dfMin = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"))
+            .min()
+          val data = dfMin.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "hour") {
+          val dfMin = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"))
             .min()
           val data = dfMin.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "min") {
-          val dfMin = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")))
+          val dfMin = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"))
             .min()
           val data = dfMin.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "sec") {
-          val dfMin = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")),
-            second(col("notifiedAt")))
+          val dfMin = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"),
+            second(col("notifiedAt")).as("second"))
             .min()
           val data = dfMin.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
@@ -864,9 +1056,11 @@ object HdfsTools extends App {
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "sec") {
-          val dfSum = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")),
-            second(col("notifiedAt")))
+          val dfSum = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"),
+            second(col("notifiedAt")).as("second"))
             .sum()
           val data = dfSum.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
@@ -877,23 +1071,42 @@ object HdfsTools extends App {
         }
       }
       else if (method == "std"){
-        if (period == "hour") {
-          val dfStd = df.groupBy(hour(col("notifiedAt")))
+        if (period == "month") {
+          val dfStd = df.groupBy(month(col("notifiedAt")).as("month"))
+            .agg(stddev("value"))
+          val data = dfStd.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "day") {
+          val dfStd = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"))
+            .agg(stddev("value"))
+          val data = dfStd.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "hour") {
+          val dfStd = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"))
             .agg(stddev("value"))
           val data = dfStd.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "min") {
-          val dfStd = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")))
+          val dfStd = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"))
             .agg(stddev("value"))
           val data = dfStd.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "sec") {
-          val dfStd = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")),
-            second(col("notifiedAt")))
+          val dfStd = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"),
+            second(col("notifiedAt")).as("second"))
             .agg(stddev("value"))
           val data = dfStd.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
@@ -905,22 +1118,42 @@ object HdfsTools extends App {
 
       }
       else if (method == "var"){
-        if (period == "hour") {
-          val dfVar = df.groupBy(hour(col("notifiedAt")))
+        if (period == "month") {
+          val dfVar = df.groupBy(month(col("notifiedAt")).as("month"))
+            .agg(variance("value"))
+          val data = dfVar.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "day") {
+          val dfVar = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"))
+            .agg(variance("value"))
+          val data = dfVar.toJSON.collect()
+          result = Json.toJson(data).toString().replace("\\\"", "")
+        }
+        else if (period == "hour") {
+          val dfVar = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"))
             .agg(variance("value"))
           val data = dfVar.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "min") {
-          val dfVar = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")))
+          val dfVar = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"))
             .agg(variance("value"))
           val data = dfVar.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
         }
         else if (period == "sec") {
-          val dfVar = df.groupBy(hour(col("notifiedAt")),
-            minute(col("notifiedAt")), second(col("notifiedAt")))
+          val dfVar = df.groupBy(month(col("notifiedAt")).as("month"),
+            dayofmonth(col("notifiedAt")).as("day"),
+            hour(col("notifiedAt")).as("hour"),
+            minute(col("notifiedAt")).as("minute"),
+            second(col("notifiedAt")).as("second"))
             .agg(variance("value"))
           val data = dfVar.toJSON.collect()
           result = Json.toJson(data).toString().replace("\\\"", "")
@@ -935,63 +1168,23 @@ object HdfsTools extends App {
         result = c.toString()
       }
     }
-    else if ((aggrMethod isDefined) && (aggrPeriod isEmpty)){
+    else {
       var df = spark.emptyDataFrame
+
       if ((dateFrom isDefined) || (dateTo isDefined)) {
         val dF = spark.read.parquet(path)
-        df = getDataInThisTimeframe(dF, path, dateFrom, dateTo, true,id)
+        df = getDataInThisTimeframe(dF, path, dateFrom, dateTo, false,"")
           .select("notifiedAt", property + ".value")
       }
       else {
         df = spark.read.parquet(path)
-          .filter("id == '" + id + "'")
           .select("notifiedAt", property + ".value")
       }
-      val method = aggrMethod.get
-      if (method == "avg") {
-        val dfAvg = df.groupBy().avg()
-        val data = dfAvg.toJSON.collect()
-        result = Json.toJson(data).toString().replace("\\\"", "")
-      }
-      else if (method == "sum") {
-        val dfSum = df.groupBy().sum()
-        val data = dfSum.toJSON.collect()
-        result = Json.toJson(data).toString().replace("\\\"", "")
-      }
-      else if (method == "max"){
-        val dfMax = df.groupBy().max()
-        val data = dfMax.toJSON.collect()
-        result = Json.toJson(data).toString().replace("\\\"", "")
-      }
-      else if (method == "min") {
-        df.show(false)
-        val dfMin = df.groupBy().min()
-        dfMin.show(false)
-        val data = dfMin.toJSON.collect()
-        result = Json.toJson(data).toString().replace("\\\"", "")
-      }
-      else if (method == "std"){
-        df.show(false)
-        val dfStd = df
-          //.groupBy()
-          .agg(stddev("value"))
-        val data = dfStd.toJSON.collect()
-        result = Json.toJson(data).toString().replace("\\\"", "")
-      }
-      else if (method == "var") {
-        df.show(false)
-        val dfVar = df.agg(variance("value"))
-        val data = dfVar.toJSON.collect()
-        result = Json.toJson(data).toString().replace("\\\"", "")
-      }
-      else {
-        val c: JsValue = JsObject(Seq("Error" -> JsString("Método no válido")))
-        result = c.toString()
-      }
-    }
-    else {
-      val c: JsValue = JsObject(Seq("Error" -> JsString("Método no introducido")))
-      result = c.toString()
+
+      df = spark.read.parquet(path)
+        .select("notifiedAt", property + ".value")
+      val data = df.toJSON.collect()
+      result = Json.toJson(data).toString().replace("\\\"", "")
     }
     result
   }
