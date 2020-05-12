@@ -6,13 +6,13 @@ import java.util.logging.Logger
 
 import scala.collection.mutable.ListBuffer
 
-object SqlTools {
+object PostgresTools {
 
   val logger = Logger.getLogger(this.getClass.getSimpleName)
 
-  def createConnection() = {
+  def createConnectionPostgres() = {
     // Formato: jdbc:postgresql://servidor/nombre_db
-    var url = "jdbc:postgresql://192.168.99.102:5432/postgres"
+    var url = "jdbc:postgresql://192.168.99.102:5433/postgres"
     val props: Properties = new Properties()
 
     props.setProperty("user", "postgres")
@@ -30,24 +30,19 @@ object SqlTools {
   }
 
   // table_name se supone que tiene que ser el valor del parámetro type
-  def insertPostgres(connection: Connection, table_name: String, column_list: ListBuffer[String], values_list: ListBuffer[String]) = {
+  def insertPostgres(table_name: String, column_list: ListBuffer[String],
+                     values_list: ListBuffer[String])
+                    (implicit connection: Connection) = {
+    val logger = Logger.getLogger(this.getClass.getSimpleName)
 
-    var sql = ""
-    if (table_name == "Property" || table_name == "Relationship"){
-      sql = s"INSERT INTO ${table_name} (${column_list.mkString(",")}) VALUES (${values_list.mkString(",")})"
-    }
+    val sql = s"INSERT INTO ${table_name} (${column_list.mkString(",")}) VALUES (${values_list.mkString(",")})"
 
-    else {
-      sql = s"INSERT INTO ${table_name} (time, ${column_list.mkString(",")}) VALUES (NOW(), ${values_list.mkString(",")})"
-    }
 
     logger.info(s"El mensaje de INSERT es: ${sql}")
-    println(s"El mensaje de INSERT es: ${sql}")
-    //val statement = connection.prepareStatement(sql)
+    val statement = connection.prepareStatement(sql)
 
-    //statement.setString(1, st)
-    //statement.executeUpdate()
-    //statement.close()
+    statement.executeUpdate()
+    statement.close()
   }
 
   def dropTypeTable(connection: Connection, type_table: String) = {

@@ -4,15 +4,15 @@ import java.sql.{Connection, DriverManager}
 import java.util.Properties
 import java.util.logging.Logger
 
-import mario.tfm.postgresql.SqlTools.logger
+import mario.tfm.postgresql.PostgresTools.logger
 
 import scala.collection.mutable.ListBuffer
 
-object SqlTools extends App {
+object MysqlTools extends App {
 
   val logger = Logger.getLogger(this.getClass.getSimpleName)
 
-  def createConnection(): Connection = {
+  def createConnectionMysql(): Connection = {
     // Parametrizar esto en el Config
     // Formato: jdbc:postgresql://servidor/nombre_db
     var url = "jdbc:mysql://localhost:3306/tfm?useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC"
@@ -40,24 +40,6 @@ object SqlTools extends App {
     connection
   }
 
-  /*var sql = ""
-  var connection = createConnection()
-
-  sql = s"INSERT INTO entity (id, type, notifiedAt, context) VALUES (?, ?, CAST(? AS DATETIME),?)"
-
-  val pre = connection.prepareStatement("SET sql_mode = ''")
-  val statement = connection.prepareStatement(sql)
-  pre.execute()
-  pre.close()
-
-  statement.setString(1, "Peugeot")
-  statement.setString(2, "Vehiculo")
-  statement.setString(3, "2018-12-04T12:00:00Z")
-  statement.setString(4, "http://uri.etsi.org/ngsi-ld/v1/ngsi-ld-core-context.jsonld")
-  logger.info(s"El mensaje de INSERT es: ${sql}")
-  statement.executeUpdate()
-  statement.close()*/
-  // Al final hay que hacer connection.close()
 
   // table_name se supone que tiene que ser el valor del parámetro type
   def insertMySql(table_name: String, column_list: ListBuffer[String], values_list: ListBuffer[String])
@@ -65,20 +47,10 @@ object SqlTools extends App {
 
     val logger = Logger.getLogger(this.getClass.getSimpleName)
 
-    var sql = ""
-    //if (table_name == "Property" || table_name == "Relationship"){
-      sql = s"INSERT INTO ${table_name} (${column_list.mkString(",")}) VALUES (${values_list.mkString(",")})"
-    //}
-
-    /*else {
-      sql = s"INSERT INTO ${table_name} (time, ${column_list.mkString(",")}) VALUES (NOW(), ${values_list.mkString(",")})"
-    }*/
-
+    val sql = s"INSERT INTO ${table_name} (${column_list.mkString(",")}) VALUES (${values_list.mkString(",")})"
 
     val statement = connection.prepareStatement(sql)
     logger.info(sql)
-    //statement.setString(1, st)
-
 
     statement.executeUpdate()
     statement.close()

@@ -15,10 +15,10 @@ object Arguments extends App {
     val parser1 = {
       import builder._
       OParser.sequence(
-        opt[String]("isSql")
+        opt[String]("persistence")
           .required()
-          .action((x, c) => c.copy(isSql = x))
-          .text("Put this option to true in case want data in Sql format")
+          .action((x, c) => c.copy(persistence = x))
+          .text("Choose persistence option. Possible values are hdfs, mysql and postgres")
         // Si se añade otro parámetro, poner una coma antes de poner opt,
 
       )

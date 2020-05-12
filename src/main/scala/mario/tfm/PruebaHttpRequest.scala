@@ -16,7 +16,7 @@ import akka.http.scaladsl.settings.{ParserSettings, ServerSettings}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import akka.util.ByteString
-import mario.tfm.postgresql.DataTools.sendToPostgres
+import mario.tfm.postgresql.DataToolsPostgres.sendToPostgres
 import org.apache.http.entity.mime.MultipartEntityBuilder
 import org.apache.http.impl.client.HttpClientBuilder
 import play.api.libs.json.{JsObject, Json}

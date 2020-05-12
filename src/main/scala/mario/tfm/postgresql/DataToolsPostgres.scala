@@ -1,15 +1,15 @@
-package mario.tfm.mysql
-
+package mario.tfm.postgresql
 import java.sql.Connection
 import java.util.UUID
 import java.util.logging.Logger
 
-import mario.tfm.mysql.SqlTools._
 import play.api.libs.json.JsObject
+import mario.tfm.postgresql.PostgresTools._
 
 import scala.collection.mutable.ListBuffer
 
-object DataToolsSql {
+object DataToolsPostgres {
+
   val logger = Logger.getLogger(this.getClass.getSimpleName)
 
   def assignUuid (): UUID = {
@@ -19,7 +19,7 @@ object DataToolsSql {
 
   // Mirar que en este método he puesto el Json de circe y estaba JsObject entonces tengo que cambiar todo
   def dataToInsertEntity(jsonobject: JsObject)(implicit connection: Connection)
-    = {
+  = {
     var id = ""
     var column_names = ListBuffer[String]()
     var values = ListBuffer[String]()
@@ -34,7 +34,7 @@ object DataToolsSql {
         values.append(s"'${j._2.toString().replace("\"", "")}'")
       }
     }
-    insertMySql("Entity", column_names, values)
+    insertPostgres("Entity", column_names, values)
 
 
     for (j <- jsonobject.fields){
@@ -44,7 +44,7 @@ object DataToolsSql {
         values.append("'" + uuid + "'")
 
         //val usefuldata =
-          dataToInsertPropOrRel(j._2.as[JsObject], j._1, id)
+        dataToInsertPropOrRel(j._2.as[JsObject], j._1, id)
 
       }
     }
@@ -90,7 +90,7 @@ object DataToolsSql {
 
     }
 
-    insertMySql(table_name, column_names, values)
+    insertPostgres(table_name, column_names, values)
 
 
     for (j <- jsonobject.fields){
@@ -162,11 +162,11 @@ object DataToolsSql {
     }
 
 
-    insertMySql(table_name, column_names, values)
+    insertPostgres(table_name, column_names, values)
 
-    }
+  }
 
-  def sendToMySql(data: Vector[JsObject])(implicit connection: Connection) = {
+  def sendToPostgres(data: Vector[JsObject])(implicit connection: Connection) = {
     //antes venía como parámetro jsonObject y de ahí sacaban esto
     //val data = (jsonObject \ "data").as[JsArray].value
     for (i <- data){
@@ -174,4 +174,5 @@ object DataToolsSql {
       dataToInsertEntity(i)
     }
   }
+
 }
