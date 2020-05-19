@@ -64,8 +64,6 @@ object Routes {
 
                 data = data.map(i => i + ("notifiedAt" -> notifiedAt) + ("context" -> context))
 
-                println("data 1 " + data)
-                // sendToPostgres(null, data)
                 sendToMySql(data)
                 complete(StatusCodes.Created)
               }
@@ -98,8 +96,6 @@ object Routes {
               case Success(h) =>
                 try {
                   val data = h.as[JsObject]
-                  println("data 1 " + data)
-                  println("Antes de enviar a parquet")
                   sendParquet(data)
                   complete(StatusCodes.Created)
                 }

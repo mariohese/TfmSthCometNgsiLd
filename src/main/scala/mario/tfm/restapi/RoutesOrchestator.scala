@@ -87,7 +87,7 @@ trait RoutesOrchestator {
 
       implicit val spark = SparkSession.builder
         .appName("SparkSession")
-        .master("local[4]")
+        .master("local[8]")
         .config("spark.network.timeout", 100000000)
         .config("spark.executor.heartbeatInterval",100000000)
         .config("spark.io.compression.codec", "snappy")

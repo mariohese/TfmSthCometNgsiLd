@@ -52,7 +52,8 @@ object MysqlTools extends App {
     val statement = connection.prepareStatement(sql)
     logger.info(sql)
 
-    statement.executeUpdate()
+    val i = statement.executeUpdate()
+    logger.info(i.toString)
     statement.close()
   }
 

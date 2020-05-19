@@ -9,7 +9,7 @@ import play.api.libs.json.JsObject
 
 import scala.collection.mutable.ListBuffer
 
-object DataToolsMysql {
+object DataToolsMysql extends App {
   val logger = Logger.getLogger(this.getClass.getSimpleName)
 
   def assignUuid (): UUID = {
@@ -20,10 +20,10 @@ object DataToolsMysql {
   // Mirar que en este método he puesto el Json de circe y estaba JsObject entonces tengo que cambiar todo
   def dataToInsertEntity(jsonobject: JsObject)(implicit connection: Connection)
     = {
+    val logger = Logger.getLogger(this.getClass.getSimpleName)
     var id = ""
     var column_names = ListBuffer[String]()
     var values = ListBuffer[String]()
-    //logger.info(s"Json Object fields: ${jsonobject.fields}")
     for (j <- jsonobject.fields) {
       if (j._1 == "id") {
         id = j._2.as[String]
@@ -34,12 +34,12 @@ object DataToolsMysql {
         values.append(s"'${j._2.toString().replace("\"", "")}'")
       }
     }
+
     insertMySql("Entity", column_names, values)
 
 
     for (j <- jsonobject.fields){
       if (j._2.isInstanceOf[JsObject]) {
-        //logger.info(s"Esto es instancia de objeto: ${j._1} , ${j._2}")
         val uuid = assignUuid().toString
         values.append("'" + uuid + "'")
 
@@ -54,6 +54,8 @@ object DataToolsMysql {
 
   def dataToInsertPropOrRel(jsonobject: JsObject, category: String, father: String)(implicit connection: Connection)
   = {
+    val logger = Logger.getLogger(this.getClass.getSimpleName)
+
     var table_name = ""
     val column_names = ListBuffer[String]()
     val values = ListBuffer[String]()
@@ -167,10 +169,8 @@ object DataToolsMysql {
     }
 
   def sendToMySql(data: Vector[JsObject])(implicit connection: Connection) = {
-    //antes venía como parámetro jsonObject y de ahí sacaban esto
-    //val data = (jsonObject \ "data").as[JsArray].value
+
     for (i <- data){
-      println("Objetos de data " + i)
       dataToInsertEntity(i)
     }
   }
